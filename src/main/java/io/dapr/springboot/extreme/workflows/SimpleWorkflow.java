@@ -13,9 +13,12 @@ limitations under the License.
 
 package io.dapr.springboot.extreme.workflows;
 
+import io.dapr.durabletask.Task;
 import io.dapr.durabletask.TaskCanceledException;
+import io.dapr.springboot.extreme.workflows.model.PaymentItem;
 import io.dapr.springboot.extreme.workflows.model.PaymentRequest;
 import io.dapr.springboot.extreme.workflows.service.RetryLogService;
+import io.dapr.workflows.Workflow;
 import io.dapr.workflows.WorkflowStub;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -23,9 +26,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
-public class SimpleWorkflow implements io.dapr.workflows.Workflow {
+public class SimpleWorkflow implements Workflow {
 
   @Autowired
   private RetryLogService retryLogService;
@@ -36,10 +41,16 @@ public class SimpleWorkflow implements io.dapr.workflows.Workflow {
   private Timer.Sample retryActivityTimerSample = null;
   private Timer.Sample compensationActivityTimerSample = null;
 
-  private MeterRegistry registry;
+  private final Timer childWorkflowTimer;
+
+  private final MeterRegistry registry;
 
   public SimpleWorkflow(MeterRegistry registry) {
     this.registry = registry;
+    this.childWorkflowTimer = Timer.builder("workflow.child-workflow")
+            .description("Time for ChildWorkflow  execution")
+            .tags("workflow", "ChildWorkflow")
+            .register(registry);
   }
 
   @Override
@@ -70,10 +81,22 @@ public class SimpleWorkflow implements io.dapr.workflows.Workflow {
 
       ctx.getLogger().info("First Activity for payment: {} completed.", paymentRequest.getId());
 
+      ctx.getLogger().info("Let's create a child workflow per paymentItem {}.", paymentRequest.getPaymentItems());
+      List<Task<PaymentItem>> tasks = paymentRequest.getPaymentItems().stream()
+              .map(pi -> childWorkflowTimer.record(()->
+                      ctx.callChildWorkflow(ChildWorkflow.class.getName(), pi, PaymentItem.class)))
+              .collect(Collectors.toList());
+
+      ctx.getLogger().info("All child workflows created.");
+
+      ctx.getLogger().info("Let's wait for all child workflows to complete.");
+      List<PaymentItem> allModifiedPaymentItems = ctx.allOf(tasks).await();
+      paymentRequest.setPaymentItems(allModifiedPaymentItems);
+      ctx.getLogger().info("All modified payment items from child workflows: {}", allModifiedPaymentItems);
 
       String eventContent = "";
 
-      for(int i=0; i < 10; i++) {
+      for (int i = 0; i < 10; i++) {
         try {
           ctx.getLogger().info("Wait for event, for 2 seconds, iteration: {}.", i);
           eventContent = ctx.waitForExternalEvent("EVENT", Duration.ofSeconds(2), String.class).await();
@@ -81,11 +104,11 @@ public class SimpleWorkflow implements io.dapr.workflows.Workflow {
           //We got the event, so we can break the for loop.
           break;
         } catch (TaskCanceledException tce) {
-          if(!ctx.isReplaying()) {
+          if (!ctx.isReplaying()) {
             retryLogService.incrementRetryCounter();
           }
           ctx.getLogger().info("Wait for event timed out. ");
-          ctx.getLogger().info("Let's execute the Retry Activity. Retry: {}" , retryLogService.getRetryCounter());
+          ctx.getLogger().info("Let's execute the Retry Activity. Retry: {}", retryLogService.getRetryCounter());
 
           if (!ctx.isReplaying()) {
             retryActivityTimerSample = Timer.start(registry);
@@ -99,13 +122,19 @@ public class SimpleWorkflow implements io.dapr.workflows.Workflow {
         }
       }
 
-      if(eventContent.isEmpty()){
+      if (eventContent.isEmpty()) {
         ctx.getLogger().info("Retries exhausted after {} retries. ", retryLogService.getRetryCounter());
         ctx.getLogger().info("Let's execute the Compensation Activity. ");
+        if (!ctx.isReplaying()) {
+          compensationActivityTimerSample = Timer.start(registry);
+        }
         paymentRequest = ctx.callActivity(CompensationActivity.class.getName(), paymentRequest,
                 PaymentRequest.class).await();
+        if (!ctx.isReplaying()) {
+          compensationActivityTimerSample.stop(registry.timer("compensationActivity.workflow", "workflow", "callActivity"));
+        }
         ctx.getLogger().info("Compensation Activity executed successfully. ");
-      }else{
+      } else {
         ctx.getLogger().info("We got the event after {} retries, let's execute the Next Activity. ", retryLogService.getRetryCounter());
         if (!ctx.isReplaying()) {
           nextActivityTimerSample = Timer.start(registry);
@@ -117,6 +146,7 @@ public class SimpleWorkflow implements io.dapr.workflows.Workflow {
         }
         ctx.getLogger().info("Next activity executed successfully. ");
       }
+
 
       ctx.complete(paymentRequest);
       if (!ctx.isReplaying()) {

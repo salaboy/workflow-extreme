@@ -63,7 +63,11 @@ Then to access the Zipkin instance, point your browser to http://localhost:`<MAP
 This example showcase the following example:
 - Start Workflow
 - First Activity executed
-- For 
+- For each payment item set in the request, create a ChildWorkflow asynchronously with two activities
+  - FirstChildActivity -> modify the payload
+  - SecondChildActivity -> modify the payload
+  - Complete child workflow
+  - wait for all the childworkflows to complete and print all the modified payloads.
 - For( from 0 to X=10)
     - Wait for Event with 2 seconds timeout, but retry 10 times if the event never arrives
         - Catch TaskCancelledException
@@ -73,7 +77,6 @@ This example showcase the following example:
     - Execute CompensationActivity
 - Else If the event arrived:
     - Execute NextActivity
-- 
 - Complete workflow
 
 
@@ -166,4 +169,13 @@ io.dapr.workflows.WorkflowContext        : Workflow 123 Completed.
 
 ```
 
-As you can see, after retrying four times, the event was received and the workflow moved to the next activity, without running any compensation activity. 
+As you can see, after retrying four times, the event was received and the workflow moved to the next activity, without running any compensation activity.
+
+
+
+### Perf Test
+
+
+`siege -c1 -t1S --content-type "application/json" 'http://localhost:8080/start POST {"id": "123", "customer": "salaboy", "amount": 10, "paymentItems": [ {"itemName": "test"}, {"itemName": "test2"}, {"itemName": "test3"}] }'`
+
+`siege -c50 -t10S --content-type "application/json" 'http://localhost:8080/start POST {"id": "123", "customer": "salaboy", "amount": 10, "paymentItems": [ {"itemName": "test"}, {"itemName": "test2"}, {"itemName": "test3"}] }'`
