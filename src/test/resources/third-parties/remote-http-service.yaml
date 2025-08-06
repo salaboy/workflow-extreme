@@ -1,0 +1,146 @@
+---
+openapi: 3.0.2
+info:
+  title: API Payment Validator
+  version: 1.0.0
+  description: API definition of API Payment Validator sample app
+  contact:
+    name: Salaboy
+    url: http://github.com/salaboy
+    email: salaboy@gmail.com
+  license:
+    name: MIT License
+    url: https://opensource.org/licenses/MIT
+paths:
+  /validate:
+    summary: Global payment validation
+    post:
+      tags:
+        - validation
+      x-microcks-operation:
+        dispatcher: SCRIPT
+        dispatcherRules: |
+          def retries = store.get("retries") ?:"first"
+          if (retries == "first") {
+            store.put("retries", "second", 60)
+            return "Error"
+          }
+          store.delete("retries")
+          return "CustomerA"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Payment'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              examples:
+                CustomerA:
+                  value:
+                    paymentRequestId: 123
+                    customer: salaboy
+                    amount: 10
+                    message: Salaboy's payment
+          description: Make Customer Payment
+        "500":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error message
+              examples:
+                Error:
+                  value:
+                    message: Something unexpected happened
+          description: Error Payment
+      operationId: Pay
+      summary: Customer Payment
+  /debit:
+    summary: Debit
+    post:
+      tags:
+        - debit
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Payment'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              examples:
+                CustomerA:
+                  value:
+                    paymentRequestId: 123
+                    customer: other
+                    amount: 10
+                    message: Other customer's debit
+          description: Debit Customer account
+      operationId: Debit
+      summary: Debit from Customer account
+  /credit:
+    summary: Credit
+    post:
+      tags:
+        - credit
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Payment'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              examples:
+                CustomerA:
+                  value:
+                    paymentRequestId: 123
+                    customer: salaboy
+                    amount: 10
+                    message: Salaboy's credit
+          description: Credit Customer account
+      operationId: Credit
+      summary: Credit to Customer account    
+components:
+  schemas:
+    Payment:
+      title: Payment to be validated
+      description: Payment to be validated type's schema.
+      type: object
+      properties:
+        paymentRequestId:
+          description: Payment Request Id
+          type: string
+        customer:
+          description: Customer Name
+          type: string
+        amount:
+          description: Payment amount
+          type: number
+        message:
+          description: Payment message
+          type: string
+      required:
+        - paymentRequestId
+        - customer
+        - amount
+      additionalProperties: false
+tags:
+  - name: payment
+    description: Payment resource
