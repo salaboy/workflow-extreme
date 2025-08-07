@@ -141,6 +141,7 @@ class SimpleWorkflowTests {
 
     System.out.println(">>> Let's send an event");
     given().contentType(ContentType.JSON)
+            .queryParam("instanceId", paymentRequestResult.getWorkflowInstanceId())
             .body("test content")
             .when()
             .post("/event")

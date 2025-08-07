@@ -24,9 +24,7 @@ import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @EnableDaprWorkflows
@@ -42,8 +40,6 @@ public class WorkflowRestController {
 
   @Autowired
   private ActivityTrackerService activityTrackerService;
-
-  private String instanceId;
 
   private final Timer startWorkflowTimer;
 
@@ -72,14 +68,14 @@ public class WorkflowRestController {
     retryLogService.resetRetryCounter();
     activityTrackerService.clearExecutedActivities();
 
-    instanceId = startWorkflowTimer.record(() -> daprWorkflowClient
+    String instanceId = startWorkflowTimer.record(() -> daprWorkflowClient
             .scheduleNewWorkflow(SimpleWorkflow.class, paymentRequest));
     paymentRequest.setWorkflowInstanceId(instanceId);
     return paymentRequest;
   }
 
   @PostMapping("/event")
-  public String event(@RequestBody String content) {
+  public String event(@RequestBody String content, @RequestParam("instanceId") String instanceId) {
     logger.info("Event received with content {}.", content);
     raiseEventWorkflowTimer.record(() ->
             daprWorkflowClient.raiseEvent(instanceId, "EVENT", content));

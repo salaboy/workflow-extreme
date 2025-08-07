@@ -46,38 +46,6 @@ java -jar target/workflow-extreme-1.0.0.jar
 
 ```
 
-## Observability
-
-The Zipkin container is started and configured for Dapr to send traces from the application.
-
-Because Zipkin is started with Testcontainers, to find the exposed ports you will need to run:
-
-```
-docker ps
-```
-
-Find the Zipkin container and check for the mapped port on localhost:
-
-```
-CONTAINER ID  IMAGE                                  COMMAND               CREATED         STATUS                   PORTS                                                       NAMES
-fd9e08addd6f  docker.io/testcontainers/ryuk:0.11.0   /bin/ryuk             34 seconds ago  Up 35 seconds            0.0.0.0:41353->8080/tcp                                     testcontainers-ryuk-2bfe7007-c07b-4a37-bfc9-4f6fdec11e84
-490036349a1f  docker.io/confluentinc/cp-kafka:7.5.0  -c while [ ! -f /...  34 seconds ago  Up 35 seconds            0.0.0.0:34275->2181/tcp, 0.0.0.0:33459->9093/tcp, 9092/tcp  gifted_williamson
-711c83bfd445  docker.io/openzipkin/zipkin:latest                           32 seconds ago  Up 32 seconds (healthy)  0.0.0.0:38517->9411/tcp, 9410/tcp                           reverent_brahmagupta
-85078f4b20db  docker.io/daprio/placement:1.15.4      ./placement -port...  30 seconds ago  Up 30 seconds            0.0.0.0:45027->50005/tcp                                    cranky_gould
-8cc6565f609d  docker.io/daprio/scheduler:1.15.4      ./scheduler --por...  30 seconds ago  Up 30 seconds            0.0.0.0:33689->51005/tcp                                    confident_margulis
-eb61eafd25e5  docker.io/testcontainers/sshd:1.2.0    echo ${USERNAME}:...  29 seconds ago  Up 30 seconds            0.0.0.0:33429->22/tcp                                       nifty_lederberg
-07e10c2ef589  docker.io/daprio/daprd:1.15.4          ./daprd --app-id ...  29 seconds ago  Up 29 seconds            0.0.0.0:36415->3500/tcp, 0.0.0.0:41827->50001/tcp           cool_diffie
-f24ccad95619  quay.io/microcks/microcks-uber:1.11.2                        28 seconds ago  Up 28 seconds            0.0.0.0:44195->8080/tcp, 0.0.0.0:41255->9090/tcp            modest_shaw
-
-```
-
-For this example: `711c83bfd445  docker.io/openzipkin/zipkin:latest -> 0.0.0.0:38517->9411/tcp`, the `MAPPED_PORT` is `38517`
-
-Then to access the Zipkin instance, point your browser to http://localhost:`<MAPPED_PORT>`/
-
-![Zipkin](imgs/zipkin.png) 
-
-
 ### Scenario
 
 This example showcase the following example:
@@ -110,7 +78,6 @@ http :8080/start --raw '{"id": "123", "customer": "salaboy", "amount": 10, "paym
 
 This will keep retrying if an event is not sent, until the retries are exhausted and finally a CompensationActivity will be executed.
 
-
 If you start a new instance and then send an event, while it is still retrying:
 
 ```sh
@@ -118,7 +85,6 @@ http :8080/event content=test
 ```
 
 You should see that the retry loop is stopped and the NextActivity is executed.
-
 
 As you can see, after retrying four times, the event was received and the workflow moved to the next activity, without running any compensation activity.
 
@@ -129,3 +95,33 @@ As you can see, after retrying four times, the event was received and the workfl
 `siege -c1 -t1S --content-type "application/json" 'http://localhost:8080/start POST {"id": "123", "customer": "salaboy", "amount": 10, "paymentItems": [ {"itemName": "test"}, {"itemName": "test2"}, {"itemName": "test3"}] }'`
 
 `siege -c50 -t10S --content-type "application/json" 'http://localhost:8080/start POST {"id": "123", "customer": "salaboy", "amount": 10, "paymentItems": [ {"itemName": "test"}, {"itemName": "test2"}, {"itemName": "test3"}] }'`
+
+
+## Observability
+
+The Zipkin container is started and configured for Dapr to send traces from the application.
+
+Because Zipkin is started with Testcontainers, to find the exposed ports you will need to run:
+
+```
+docker ps
+```
+
+Find the Zipkin container and check for the mapped port on localhost:
+
+```
+CONTAINER ID  IMAGE                                  COMMAND               CREATED         STATUS                   PORTS                                                       NAMES
+fd9e08addd6f  docker.io/testcontainers/ryuk:0.11.0   /bin/ryuk             34 seconds ago  Up 35 seconds            0.0.0.0:41353->8080/tcp                                     testcontainers-ryuk-2bfe7007-c07b-4a37-bfc9-4f6fdec11e84
+490036349a1f  docker.io/confluentinc/cp-kafka:7.5.0  -c while [ ! -f /...  34 seconds ago  Up 35 seconds            0.0.0.0:34275->2181/tcp, 0.0.0.0:33459->9093/tcp, 9092/tcp  gifted_williamson
+711c83bfd445  docker.io/openzipkin/zipkin:latest                           32 seconds ago  Up 32 seconds (healthy)  0.0.0.0:38517->9411/tcp, 9410/tcp                           reverent_brahmagupta
+85078f4b20db  docker.io/daprio/placement:1.15.4      ./placement -port...  30 seconds ago  Up 30 seconds            0.0.0.0:45027->50005/tcp                                    cranky_gould
+8cc6565f609d  docker.io/daprio/scheduler:1.15.4      ./scheduler --por...  30 seconds ago  Up 30 seconds            0.0.0.0:33689->51005/tcp                                    confident_margulis
+eb61eafd25e5  docker.io/testcontainers/sshd:1.2.0    echo ${USERNAME}:...  29 seconds ago  Up 30 seconds            0.0.0.0:33429->22/tcp                                       nifty_lederberg
+07e10c2ef589  docker.io/daprio/daprd:1.15.4          ./daprd --app-id ...  29 seconds ago  Up 29 seconds            0.0.0.0:36415->3500/tcp, 0.0.0.0:41827->50001/tcp           cool_diffie
+f24ccad95619  quay.io/microcks/microcks-uber:1.11.2                        28 seconds ago  Up 28 seconds            0.0.0.0:44195->8080/tcp, 0.0.0.0:41255->9090/tcp            modest_shaw
+
+```
+
+For this example: `711c83bfd445  docker.io/openzipkin/zipkin:latest -> 0.0.0.0:38517->9411/tcp`, the `MAPPED_PORT` is `38517`
+
+Then to access the Zipkin instance, point your browser to http://localhost:`<MAPPED_PORT>`/
