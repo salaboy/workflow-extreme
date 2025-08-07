@@ -73,6 +73,7 @@ public class DaprTestContainersConfig {
   GenericContainer zipkinContainer(Network network) {
     GenericContainer zipkinContainer = new GenericContainer(DockerImageName.parse("openzipkin/zipkin:latest"))
             .withNetwork(network)
+            .withEnv("JAVA_OPTS","-Xms1g -Xmx1g -XX:+ExitOnOutOfMemoryError")
             .withExposedPorts(9411)
             .withNetworkAliases("zipkin");
 

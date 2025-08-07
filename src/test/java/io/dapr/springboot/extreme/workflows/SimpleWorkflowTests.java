@@ -73,7 +73,7 @@ class SimpleWorkflowTests {
     PaymentRequest paymentRequestResult = given().contentType(ContentType.JSON)
         .body(paymentRequest)
         .when()
-        .post("/multiretry/start")
+        .post("/start")
         .then()
         .statusCode(200).extract().as(PaymentRequest.class);
 
@@ -124,7 +124,7 @@ class SimpleWorkflowTests {
     PaymentRequest paymentRequestResult = given().contentType(ContentType.JSON)
             .body(paymentRequest)
             .when()
-            .post("/multiretry/start")
+            .post("/start")
             .then()
             .statusCode(200).extract().as(PaymentRequest.class);
 
@@ -143,7 +143,7 @@ class SimpleWorkflowTests {
     given().contentType(ContentType.JSON)
             .body("test content")
             .when()
-            .post("/multiretry/event")
+            .post("/event")
             .then()
             .statusCode(200);
 
