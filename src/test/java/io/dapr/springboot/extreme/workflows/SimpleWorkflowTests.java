@@ -80,6 +80,15 @@ class SimpleWorkflowTests {
     // Check that I have an instance id
     assertFalse(paymentRequestResult.getWorkflowInstanceId().isEmpty());
 
+    //Let's send the START event
+    given().contentType(ContentType.JSON)
+            .queryParam("instanceId", paymentRequestResult.getWorkflowInstanceId())
+            .body("test content")
+            .when()
+            .post("/event-start")
+            .then()
+            .statusCode(200);
+
     await().atMost(Duration.ofSeconds(30))
             .pollDelay(500, TimeUnit.MILLISECONDS)
             .pollInterval(500, TimeUnit.MILLISECONDS)
@@ -128,8 +137,20 @@ class SimpleWorkflowTests {
             .then()
             .statusCode(200).extract().as(PaymentRequest.class);
 
+
+
     // Check that I have an instance id
     assertFalse(paymentRequestResult.getWorkflowInstanceId().isEmpty());
+
+    //Let's send the START event
+    given().contentType(ContentType.JSON)
+            .queryParam("instanceId", paymentRequestResult.getWorkflowInstanceId())
+            .body("test content")
+            .when()
+            .post("/event-start")
+            .then()
+            .statusCode(200);
+
 
     await().atMost(Duration.ofSeconds(30))
             .pollDelay(500, TimeUnit.MILLISECONDS)
@@ -144,7 +165,7 @@ class SimpleWorkflowTests {
             .queryParam("instanceId", paymentRequestResult.getWorkflowInstanceId())
             .body("test content")
             .when()
-            .post("/event")
+            .post("/event-continue")
             .then()
             .statusCode(200);
 

@@ -23,6 +23,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
@@ -78,6 +79,16 @@ public class DaprTestContainersConfig {
             .withNetworkAliases("zipkin");
 
     return zipkinContainer;
+  }
+
+  @Bean
+  @ServiceConnection
+  KafkaContainer kafkaContainer(Network network) {
+    KafkaContainer kafkaContainer = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.0"))
+            .withNetwork(network)
+            .withNetworkAliases("kafka")
+            .withListener(() -> "kafka:19092");
+    return kafkaContainer;
   }
 
 

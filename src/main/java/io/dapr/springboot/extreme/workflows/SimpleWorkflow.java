@@ -66,6 +66,8 @@ public class SimpleWorkflow implements Workflow {
       ctx.getLogger().info("Workflow instance {} started", instanceId);
       PaymentRequest paymentRequest = ctx.getInput(PaymentRequest.class);
 
+      //Waiting on this event to start processing
+      ctx.waitForExternalEvent("START-EVENT", String.class).await();
 
       ctx.getLogger().info("Let's call the first activity for payment {}.", paymentRequest.getId());
 
@@ -99,7 +101,7 @@ public class SimpleWorkflow implements Workflow {
       for (int i = 0; i < 10; i++) {
         try {
           ctx.getLogger().info("Wait for event, for 2 seconds, iteration: {}.", i);
-          eventContent = ctx.waitForExternalEvent("EVENT", Duration.ofSeconds(2), String.class).await();
+          eventContent = ctx.waitForExternalEvent("CONTINUE-EVENT", Duration.ofSeconds(2), String.class).await();
           ctx.getLogger().info("Event arrived with content: {}", eventContent);
           //We got the event, so we can break the for loop.
           break;
