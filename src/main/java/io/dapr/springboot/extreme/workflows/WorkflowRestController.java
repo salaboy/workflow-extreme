@@ -74,12 +74,26 @@ public class WorkflowRestController {
     return paymentRequest;
   }
 
-  @PostMapping("/event")
+  @PostMapping("/event-start")
   public String event(@RequestBody String content, @RequestParam("instanceId") String instanceId) {
     logger.info("Event received with content {}.", content);
     raiseEventWorkflowTimer.record(() ->
-            daprWorkflowClient.raiseEvent(instanceId, "EVENT", content));
+            daprWorkflowClient.raiseEvent(instanceId, "START-EVENT", content));
     return "Event processed";
+  }
+
+  @PostMapping("/event-continue")
+  public String eventContinue(@RequestBody String content, @RequestParam("instanceId") String instanceId) {
+    logger.info("Event received with content {}.", content);
+    raiseEventWorkflowTimer.record(() ->
+            daprWorkflowClient.raiseEvent(instanceId, "CONTINUE-EVENT",
+                    content));
+    return "Event processed";
+  }
+
+  @DeleteMapping("/delete")
+  public void terminate(@RequestParam("instanceId") String instanceId){
+    daprWorkflowClient.terminateWorkflow(instanceId, null);
   }
 
 }
