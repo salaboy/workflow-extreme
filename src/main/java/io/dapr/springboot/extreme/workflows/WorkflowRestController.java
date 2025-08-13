@@ -74,6 +74,7 @@ public class WorkflowRestController {
     return paymentRequest;
   }
 
+
   @PostMapping("/event-start")
   public String event(@RequestBody String content, @RequestParam("instanceId") String instanceId) {
     logger.info("Event received with content {}.", content);

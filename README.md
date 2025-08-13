@@ -81,7 +81,7 @@ This will keep retrying if an event is not sent, until the retries are exhausted
 If you start a new instance and then send an event, while it is still retrying:
 
 ```sh
-http :8080/event content=test
+http ":8080/event-start?instanceId=<INSTANCE_ID>" content=test
 ```
 
 You should see that the retry loop is stopped and the NextActivity is executed.
@@ -125,3 +125,18 @@ f24ccad95619  quay.io/microcks/microcks-uber:1.11.2                        28 se
 For this example: `711c83bfd445  docker.io/openzipkin/zipkin:latest -> 0.0.0.0:38517->9411/tcp`, the `MAPPED_PORT` is `38517`
 
 Then to access the Zipkin instance, point your browser to http://localhost:`<MAPPED_PORT>`/
+
+
+## Actuator & Micrometer
+
+This example shows how to record the time of execution of different parts of the workflow. This example uses micrometer to record the execution time of scheduleNewWorkflow, callActivity, the logic executed inside an Activity and the total workflow execution time. The Workflow definition call two activities, where the second one introduces a 100ms delay that is reflected in the metrics.
+
+You can check the following endpoints to fetch the metrics for this example:
+
+```
+http :8080/actuator/metrics
+```
+
+```
+http :8080/actuator/metrics/activity.first-activity
+```
