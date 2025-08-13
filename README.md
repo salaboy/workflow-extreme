@@ -126,6 +126,12 @@ For this example: `711c83bfd445  docker.io/openzipkin/zipkin:latest -> 0.0.0.0:3
 
 Then to access the Zipkin instance, point your browser to http://localhost:`<MAPPED_PORT>`/
 
+If you want to change where Zipkin is hosted, you can run the application without the test configurations (`mvn spring-boot:run`) and
+configure in the `application.properties` file the follow property with the new Zipkin URL:
+
+```properties
+zipkin.tracing.endpoint:https://zipkinhostedserver:port
+```
 
 ## Actuator & Micrometer
 
@@ -140,3 +146,15 @@ http :8080/actuator/metrics
 ```
 http :8080/actuator/metrics/activity.first-activity
 ```
+
+
+
+The Prometheus Actuator is also enabled, you can scrape prometheus in this endpoint: 
+
+```properties
+http :8080/actuator/prometheus
+```
+
+For configuring prometheus and metrics parameters you can check this documentation page: 
+- [Spring Boot metrics](https://docs.spring.io/spring-boot/reference/actuator/metrics.html#actuator.metrics.export.prometheus)
+
