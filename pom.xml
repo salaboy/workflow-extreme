@@ -17,7 +17,7 @@
 
   <properties>
 <!--     <dapr.version>0.16.0-SNAPSHOT</dapr.version>-->
-    <dapr.version>0.15.0-rc-8</dapr.version>
+    <dapr.version>0.15.1</dapr.version>
   </properties>
 
   <dependencies>
@@ -37,8 +37,25 @@
       <groupId>io.dapr.spring</groupId>
       <artifactId>dapr-spring-boot-starter</artifactId>
       <version>${dapr.version}</version>
+<!--      <exclusions>-->
+<!--        <exclusion>-->
+<!--          <groupId>io.dapr</groupId>-->
+<!--          <artifactId>durabletask-client</artifactId>-->
+<!--        </exclusion>-->
+<!--      </exclusions>-->
     </dependency>
 
+<!--    <dependency>-->
+<!--      <groupId>io.dapr</groupId>-->
+<!--      <artifactId>durabletask-client</artifactId>-->
+<!--      <version>1.5.11-SNAPSHOT</version>-->
+<!--    </dependency>-->
+    <dependency>
+      <groupId>com.redis</groupId>
+      <artifactId>testcontainers-redis</artifactId>
+      <version>2.2.2</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>io.dapr.spring</groupId>
       <artifactId>dapr-spring-boot-starter-test</artifactId>

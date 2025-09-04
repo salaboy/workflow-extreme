@@ -75,14 +75,20 @@ Once the application is running, you can invoke the endpoint using `cURL` or [`H
 http :8080/start --raw '{"id": "123", "customer": "salaboy", "amount": 10, "paymentItems": [ {"itemName": "test"}, {"itemName": "test2"}, {"itemName": "test3"}] }'  
 ```
 
+or with 6 `paymentItems` (Child workflow will throw an exception on Item 5 (`test-5`)):
+
+```sh
+http :8080/start --raw '{"id": "123", "customer": "salaboy", "amount": 10, "paymentItems": [ {"itemName": "test"}, {"itemName": "test2"}, {"itemName": "test3"}, {"itemName": "test4"}, {"itemName": "test5"}, {"itemName": "test6"}] }'
+```
 
 This will keep retrying if an event is not sent, until the retries are exhausted and finally a CompensationActivity will be executed.
 
 If you start a new instance and then send an event, while it is still retrying:
 
 ```sh
-http ":8080/event-start?instanceId=<INSTANCE_ID>" content=test
+http ":8080/event-continue?instanceId=<INSTANCE_ID>" content=test
 ```
+
 
 You should see that the retry loop is stopped and the NextActivity is executed.
 

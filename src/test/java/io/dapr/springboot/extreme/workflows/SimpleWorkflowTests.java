@@ -13,6 +13,7 @@ limitations under the License.
 
 package io.dapr.springboot.extreme.workflows;
 
+import io.dapr.client.DaprClient;
 import io.dapr.springboot.DaprAutoConfiguration;
 import io.dapr.springboot.extreme.workflows.model.PaymentRequest;
 import io.dapr.springboot.extreme.workflows.service.ActivityTrackerService;
@@ -79,6 +80,7 @@ class SimpleWorkflowTests {
 
     // Check that I have an instance id
     assertFalse(paymentRequestResult.getWorkflowInstanceId().isEmpty());
+
 
     //Let's send the START event
     given().contentType(ContentType.JSON)

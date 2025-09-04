@@ -47,8 +47,12 @@ public class FirstChildActivity implements WorkflowActivity {
   public Object run(WorkflowActivityContext ctx) {
     return activityTimer.record(() -> {
       PaymentItem paymentItem = ctx.getInput(PaymentItem.class);
-
       logger.info("Executing First Child Activity.");
+
+      if(paymentItem.getItemName().equals("test5")){
+        throw new IllegalStateException("Breaking because test5");
+      }
+
       activityTrackerService.addExecutedActivity(ctx.getName());
       paymentItem.setItemName(paymentItem.getItemName() + "-1");
       logger.info("First Child Activity: {}", paymentItem.getItemName());

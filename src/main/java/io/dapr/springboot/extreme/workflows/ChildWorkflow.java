@@ -3,9 +3,13 @@ package io.dapr.springboot.extreme.workflows;
 import io.dapr.springboot.extreme.workflows.model.PaymentItem;
 import io.dapr.workflows.Workflow;
 import io.dapr.workflows.WorkflowStub;
+import io.dapr.workflows.WorkflowTaskOptions;
+import io.dapr.workflows.WorkflowTaskRetryPolicy;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.stereotype.Component;
+
+import java.time.Duration;
 
 @Component
 public class ChildWorkflow implements Workflow {
@@ -38,7 +42,13 @@ public class ChildWorkflow implements Workflow {
       if (!ctx.isReplaying()) {
         firstChildActivityTimerSample = Timer.start(registry);
       }
-      paymentItem = ctx.callActivity(FirstChildActivity.class.getName(), paymentItem,
+      WorkflowTaskOptions taskOptions = new WorkflowTaskOptions(WorkflowTaskRetryPolicy
+              .newBuilder()
+              .setFirstRetryInterval(Duration.ofSeconds(5))
+              .setRetryTimeout(Duration.ofSeconds(5))
+              .setMaxNumberOfAttempts(3)
+              .build());
+      paymentItem = ctx.callActivity(FirstChildActivity.class.getName(), paymentItem, taskOptions,
               PaymentItem.class).await();
 
       if (!ctx.isReplaying()) {

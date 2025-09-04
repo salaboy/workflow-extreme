@@ -69,7 +69,7 @@ public class WorkflowRestController {
     activityTrackerService.clearExecutedActivities();
 
     String instanceId = startWorkflowTimer.record(() -> daprWorkflowClient
-            .scheduleNewWorkflow(SimpleWorkflow.class, paymentRequest));
+            .scheduleNewWorkflow(SimpleWorkflowV4.class, paymentRequest));
     paymentRequest.setWorkflowInstanceId(instanceId);
     return paymentRequest;
   }

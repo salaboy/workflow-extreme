@@ -13,6 +13,7 @@ limitations under the License.
 
 package io.dapr.springboot.extreme.workflows;
 
+import io.dapr.durabletask.CompositeTaskFailedException;
 import io.dapr.durabletask.Task;
 import io.dapr.durabletask.TaskCanceledException;
 import io.dapr.springboot.extreme.workflows.model.PaymentItem;
@@ -20,6 +21,8 @@ import io.dapr.springboot.extreme.workflows.model.PaymentRequest;
 import io.dapr.springboot.extreme.workflows.service.RetryLogService;
 import io.dapr.workflows.Workflow;
 import io.dapr.workflows.WorkflowStub;
+import io.dapr.workflows.WorkflowTaskOptions;
+import io.dapr.workflows.WorkflowTaskRetryPolicy;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +33,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
-public class SimpleWorkflow implements Workflow {
+public class SimpleWorkflowV2 implements Workflow {
 
   @Autowired
   private RetryLogService retryLogService;
@@ -45,7 +48,7 @@ public class SimpleWorkflow implements Workflow {
 
   private final MeterRegistry registry;
 
-  public SimpleWorkflow(MeterRegistry registry) {
+  public SimpleWorkflowV2(MeterRegistry registry) {
     this.registry = registry;
     this.childWorkflowTimer = Timer.builder("workflow.child-workflow")
             .description("Time for ChildWorkflow  execution")
@@ -57,9 +60,12 @@ public class SimpleWorkflow implements Workflow {
   public WorkflowStub create() {
     return ctx -> {
 
+
       if (!ctx.isReplaying()) {
         workflowTimerSample = Timer.start(registry);
       }
+
+      System.out.println(">>> workflowTimerSample: " + workflowTimerSample);
 
       String instanceId = ctx.getInstanceId();
 
@@ -69,7 +75,7 @@ public class SimpleWorkflow implements Workflow {
 
       ctx.getLogger().info("Let's wait for the START-EVENT to start processing payment: {}.", paymentRequest.getId());
       //Waiting on this event to start processing
-      ctx.waitForExternalEvent("START-EVENT", String.class).await();
+      ctx.waitForExternalEvent("START-EVENT", Duration.ofMinutes(2), String.class).await();
 
 
       ctx.getLogger().info("Let's call the first activity for payment: {}.", paymentRequest.getId());
@@ -77,11 +83,20 @@ public class SimpleWorkflow implements Workflow {
       if (!ctx.isReplaying()) {
         firstActivityTimerSample = Timer.start(registry);
       }
-      paymentRequest = ctx.callActivity(FirstActivity.class.getName(), paymentRequest,
+
+      WorkflowTaskOptions taskOptions = new WorkflowTaskOptions(WorkflowTaskRetryPolicy
+              .newBuilder()
+              .setFirstRetryInterval(Duration.ofSeconds(5))
+              .setRetryTimeout(Duration.ofSeconds(5))
+              .setMaxNumberOfAttempts(3)
+              .build());
+      paymentRequest = ctx.callActivity(FirstActivity.class.getName(), paymentRequest, taskOptions,
               PaymentRequest.class).await();
 
       if (!ctx.isReplaying()) {
-        firstActivityTimerSample.stop(registry.timer("firstActivity.workflow", "workflow", "callActivity"));
+        if(firstActivityTimerSample != null) {
+          firstActivityTimerSample.stop(registry.timer("firstActivity.workflow", "workflow", "callActivity"));
+        }
       }
 
       ctx.getLogger().info("First Activity for payment: {} completed.", paymentRequest.getId());
@@ -91,13 +106,31 @@ public class SimpleWorkflow implements Workflow {
               .map(pi -> childWorkflowTimer.record(()->
                       ctx.callChildWorkflow(ChildWorkflow.class.getName(), pi, PaymentItem.class)))
               .collect(Collectors.toList());
+//
+//      List<Task<PaymentItem>> tasks = new ArrayList<>();
+//      for(PaymentItem pi : paymentRequest.getPaymentItems()){
+//        tasks.add(ctx.callChildWorkflow(ChildWorkflow.class.getName(), pi, PaymentItem.class));
+//      }
 
-      ctx.getLogger().info("All child workflows created.");
+      ctx.getLogger().info("All child workflows created.{}", tasks.size());
 
       ctx.getLogger().info("Let's wait for all child workflows to complete.");
-      List<PaymentItem> allModifiedPaymentItems = ctx.allOf(tasks).await();
-      paymentRequest.setPaymentItems(allModifiedPaymentItems);
-      ctx.getLogger().info("All modified payment items from child workflows: {}", allModifiedPaymentItems);
+      List<PaymentItem> allModifiedPaymentItems = null;
+      try {
+        allModifiedPaymentItems = ctx.allOf(tasks).await();
+        paymentRequest.setPaymentItems(allModifiedPaymentItems);
+        ctx.getLogger().info("All modified payment items from child workflows: {}", allModifiedPaymentItems);
+      } catch (CompositeTaskFailedException ctfe){
+        ctx.getLogger().info("Catching exception from child workflow execution: {}", ctfe.getMessage() );
+        ctfe.printStackTrace();
+        List<Exception> exceptions = ctfe.getExceptions();
+        int i = 0;
+        for(Exception e : exceptions){
+          System.out.println("Exception " + i + " : " + e.getMessage() );
+          i++;
+        }
+
+      }
 
       String eventContent = "";
 
@@ -116,12 +149,14 @@ public class SimpleWorkflow implements Workflow {
           ctx.getLogger().info("Let's execute the Retry Activity. Retry: {}", retryLogService.getRetryCounter());
 
           if (!ctx.isReplaying()) {
-            retryActivityTimerSample = Timer.start(registry);
+              retryActivityTimerSample = Timer.start(registry);
           }
           paymentRequest = ctx.callActivity(RetryActivity.class.getName(), paymentRequest,
                   PaymentRequest.class).await();
           if (!ctx.isReplaying()) {
-            retryActivityTimerSample.stop(registry.timer("retryActivity.workflow", "workflow", "callActivity"));
+            if(retryActivityTimerSample != null) {
+              retryActivityTimerSample.stop(registry.timer("retryActivity.workflow", "workflow", "callActivity"));
+            }
           }
           ctx.getLogger().info("Retry Activity executed successfully. ");
         }
@@ -136,7 +171,9 @@ public class SimpleWorkflow implements Workflow {
         paymentRequest = ctx.callActivity(CompensationActivity.class.getName(), paymentRequest,
                 PaymentRequest.class).await();
         if (!ctx.isReplaying()) {
-          compensationActivityTimerSample.stop(registry.timer("compensationActivity.workflow", "workflow", "callActivity"));
+          if(compensationActivityTimerSample != null) {
+            compensationActivityTimerSample.stop(registry.timer("compensationActivity.workflow", "workflow", "callActivity"));
+          }
         }
         ctx.getLogger().info("Compensation Activity executed successfully. ");
       } else {
@@ -147,17 +184,22 @@ public class SimpleWorkflow implements Workflow {
         paymentRequest = ctx.callActivity(NextActivity.class.getName(), paymentRequest,
                 PaymentRequest.class).await();
         if (!ctx.isReplaying()) {
-          nextActivityTimerSample.stop(registry.timer("nextActivity.workflow", "workflow", "callActivity"));
+          if(nextActivityTimerSample != null) {
+            nextActivityTimerSample.stop(registry.timer("nextActivity.workflow", "workflow", "callActivity"));
+          }
         }
         ctx.getLogger().info("Next activity executed successfully. ");
       }
 
 
-      ctx.complete(paymentRequest);
       if (!ctx.isReplaying()) {
-        workflowTimerSample.stop(registry.timer("end.workflow", "workflow", "workflow"));
+        if(workflowTimerSample != null) {
+          workflowTimerSample.stop(registry.timer("end.workflow", "workflow", "workflow"));
+        } // If null, it's because the application got restarted and the timer shouldn't be restarted.
       }
       ctx.getLogger().info("Workflow {} Completed. ", paymentRequest.getId());
+      ctx.complete(paymentRequest);
+
     };
   }
 }

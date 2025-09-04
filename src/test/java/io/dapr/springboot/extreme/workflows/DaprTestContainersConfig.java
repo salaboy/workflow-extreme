@@ -13,6 +13,7 @@ limitations under the License.
 
 package io.dapr.springboot.extreme.workflows;
 
+import com.redis.testcontainers.RedisContainer;
 import io.dapr.testcontainers.*;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -81,6 +82,17 @@ public class DaprTestContainersConfig {
   }
 
 
+
+  @Bean
+  public RedisContainer redisContainer(Network daprNetwork, Environment env){
+    boolean reuse = env.getProperty("reuse", Boolean.class, false);
+    return new RedisContainer(RedisContainer.DEFAULT_IMAGE_NAME)
+            .withNetwork(daprNetwork)
+            .withReuse(reuse)
+            .withNetworkAliases("redis");
+  }
+
+
   @Bean
   @ServiceConnection
   @ConditionalOnProperty(prefix = "tests", name = "dapr.local", havingValue = "true")
@@ -90,6 +102,11 @@ public class DaprTestContainersConfig {
     Map<String, String> kafkaProperties = new HashMap<>();
     kafkaProperties.put("brokers", "kafka:19092");
     kafkaProperties.put("authType", "none");
+
+    Map<String, String> redisProps = new HashMap<>();
+    redisProps.put("redisHost", "redis:6379");
+    redisProps.put("redisPassword", "");
+    redisProps.put("actorStateStore", "true");
 
 
 //    * If you want to use custom images you can do so like this:
@@ -101,22 +118,22 @@ public class DaprTestContainersConfig {
 //            .asCompatibleSubstituteFor("daprio/scheduler:1.15.4");
 
 
-    DockerImageName myDaprImage = DockerImageName.parse("daprio/daprd:1.15.4");
+    DockerImageName myDaprImage = DockerImageName.parse("daprio/daprd:1.15.7");
     return new DaprContainer(myDaprImage)
             .withAppName("workflows")
             .withNetwork(daprNetwork)
 // You need to set the Placement and Scheduler image if you want to use custom registries
 //            .withPlacementImage(myDaprPlacementImage)
 //            .withSchedulerImage(myDaprSchedulerImage)
-            .withComponent(new Component("kvstore", "state.in-memory", "v1",
-                    Collections.singletonMap("actorStateStore", "true")))
+            .withComponent(new Component("kvstore", "state.redis", "v1",
+                    redisProps))
             .withConfiguration(new Configuration("daprConfig",
                     new TracingConfigurationSettings("1", true, null,
                             new ZipkinTracingConfigurationSettings("http://zipkin:9411/api/v2/spans")), null))
             .withSubscription(new Subscription("app", "pubsub", "pubsubTopic", "/asyncpubsub/continue"))
 //  Uncomment if you want to troubleshoot Dapr related problems
-//            .withDaprLogLevel(DaprLogLevel.DEBUG)
-//            .withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
+            .withDaprLogLevel(DaprLogLevel.DEBUG)
+            .withLogConsumer(outputFrame -> System.out.println(outputFrame.getUtf8String()))
             .withAppPort(8080)
             .withAppHealthCheckPath("/actuator/health")
             .withAppChannelAddress("host.testcontainers.internal")
