@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 
 @Component
-public class SimpleWorkflowV4 implements Workflow {
+public class SimpleWorkflowV8 implements Workflow {
 
   @Autowired
   private RetryLogService retryLogService;
@@ -43,7 +43,7 @@ public class SimpleWorkflowV4 implements Workflow {
 
   private final MeterRegistry registry;
 
-  public SimpleWorkflowV4(MeterRegistry registry) {
+  public SimpleWorkflowV8(MeterRegistry registry) {
     this.registry = registry;
     this.childWorkflowTimer = Timer.builder("workflow.child-workflow")
             .description("Time for ChildWorkflow  execution")
@@ -129,10 +129,10 @@ public class SimpleWorkflowV4 implements Workflow {
 
       String eventContent = "";
 
-      for (int i = 0; i < 100; i++) {
+      for (int i = 0; i < 1000; i++) {
         try {
-          ctx.getLogger().info("Wait for event, for 2 seconds, iteration: {}.", i);
-          eventContent = ctx.waitForExternalEvent("CONTINUE-EVENT", Duration.ofSeconds(3), String.class).await();
+          ctx.getLogger().info("Wait for event, for 5 seconds, iteration: {}.", i);
+          eventContent = ctx.waitForExternalEvent("CONTINUE-EVENT", Duration.ofSeconds(5), String.class).await();
           ctx.getLogger().info("Event arrived with content: {}", eventContent);
           //We got the event, so we can break the for loop.
           break;
@@ -172,17 +172,17 @@ public class SimpleWorkflowV4 implements Workflow {
 //        }
 //        ctx.getLogger().info("Compensation Activity executed successfully. ");
 //      } else {
-//        ctx.getLogger().info("We got the event after {} retries, let's execute the Next Activity. ", retryLogService.getRetryCounter());
-//        if (!ctx.isReplaying()) {
-//          nextActivityTimerSample = Timer.start(registry);
-//        }
-//        paymentRequest = ctx.callActivity(NextActivity.class.getName(), paymentRequest,
-//                PaymentRequest.class).await();
-//        if (!ctx.isReplaying()) {
-//          if(nextActivityTimerSample != null) {
-//            nextActivityTimerSample.stop(registry.timer("nextActivity.workflow", "workflow", "callActivity"));
-//          }
-//        }
+        ctx.getLogger().info("We got the event after {} retries, let's execute the Next Activity. ", retryLogService.getRetryCounter());
+        if (!ctx.isReplaying()) {
+          nextActivityTimerSample = Timer.start(registry);
+        }
+        paymentRequest = ctx.callActivity(NextActivity.class.getName(), paymentRequest,
+                PaymentRequest.class).await();
+        if (!ctx.isReplaying()) {
+          if(nextActivityTimerSample != null) {
+            nextActivityTimerSample.stop(registry.timer("nextActivity.workflow", "workflow", "callActivity"));
+          }
+        }
 //        ctx.getLogger().info("Next activity executed successfully. ");
 //      }
 

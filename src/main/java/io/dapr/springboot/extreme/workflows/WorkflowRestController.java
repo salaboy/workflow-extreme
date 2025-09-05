@@ -19,12 +19,16 @@ import io.dapr.springboot.extreme.workflows.model.PaymentRequest;
 import io.dapr.springboot.extreme.workflows.service.ActivityTrackerService;
 import io.dapr.springboot.extreme.workflows.service.RetryLogService;
 import io.dapr.workflows.client.DaprWorkflowClient;
+import io.dapr.workflows.client.NewWorkflowOptions;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @EnableDaprWorkflows
@@ -69,7 +73,7 @@ public class WorkflowRestController {
     activityTrackerService.clearExecutedActivities();
 
     String instanceId = startWorkflowTimer.record(() -> daprWorkflowClient
-            .scheduleNewWorkflow(SimpleWorkflowV4.class, paymentRequest));
+            .scheduleNewWorkflow(SimpleWorkflowV9.class, paymentRequest));
     paymentRequest.setWorkflowInstanceId(instanceId);
     return paymentRequest;
   }
@@ -93,8 +97,35 @@ public class WorkflowRestController {
   }
 
   @DeleteMapping("/delete")
-  public void terminate(@RequestParam("instanceId") String instanceId){
+  public void terminate(@RequestParam("instanceId") String instanceId) {
     daprWorkflowClient.terminateWorkflow(instanceId, null);
+  }
+
+  @PostMapping("/loop")
+  public String loop(@RequestBody PaymentRequest paymentRequest) throws InterruptedException {
+    List<String> instances = new ArrayList<>();
+    for (int i = 0; i < 1000; i++) {
+
+      String instanceId = startWorkflowTimer.record(() -> daprWorkflowClient
+              .scheduleNewWorkflow(SimpleWorkflowV8.class, paymentRequest));
+      instances.add(instanceId);
+    }
+    StringBuilder result = new StringBuilder("[");
+
+    for (String instanceId : instances) {
+      result.append("\"").append(instanceId).append("\",");
+    }
+    result.append("]");
+    return result.toString();
+  }
+
+  @PostMapping("/complete")
+  public void complete(@RequestBody List<String> instances) {
+    for (String instanceId : instances) {
+      raiseEventWorkflowTimer.record(() ->
+              daprWorkflowClient.raiseEvent(instanceId, "CONTINUE-EVENT",
+                      "hello world"));
+    }
   }
 
 }

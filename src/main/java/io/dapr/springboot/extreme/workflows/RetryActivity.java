@@ -47,7 +47,17 @@ public class RetryActivity implements WorkflowActivity {
     return activityTimer.record(() -> {
       PaymentRequest paymentRequest = ctx.getInput(PaymentRequest.class);
 
+
       logger.info("Executing Retry Activity.");
+
+      for(int j = 0 ; j < 10 ; j ++) {
+        logger.info(">>>>> Waiting for 1 seconds ... ");
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+      }
 
       activityTrackerService.addExecutedActivity(ctx.getName());
 
